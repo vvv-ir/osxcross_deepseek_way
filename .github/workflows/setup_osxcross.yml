@@ -1,4 +1,4 @@
-name: Build OSXCross (static, no libxar)
+name: Build OSXCross and Release
 on:
   push:
     branches: [ main ]
@@ -7,44 +7,36 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git make cmake clang patch libxml2-dev libssl-dev
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y git make cmake clang patch libxml2-dev libssl-dev
 
       - name: Clone OSXCross
         run: git clone https://github.com/tpoechtrager/osxcross.git
 
-      - name: Download MacOSX10.13.sdk
+      - name: Download SDK
         run: |
           mkdir -p osxcross/tarballs
-          wget -O osxcross/tarballs/MacOSX10.13.sdk.tar.xz \
-            https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
+          wget -O osxcross/tarballs/MacOSX10.13.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
 
-      - name: Build OSXCross with static ld64
+      - name: Build OSXCross (static)
         run: |
           cd osxcross
           export OSXCROSS_LIBXAR_STATIC=1
           UNATTENDED=1 ./build.sh
 
-      - name: Package toolchain
-        run: |
-          tar -czf osxcross-toolchain.tar.gz -C osxcross/target .
-
-      - name: Delete old tag and release
-        run: |
-          git push origin --delete osxcross-latest || true
-          git tag -d osxcross-latest || true
-
-      - name: Create new tag
-        run: |
-          git tag osxcross-latest
-          git push origin osxcross-latest
+      - name: Package
+        run: tar -czf osxcross-toolchain.tar.gz -C osxcross/target .
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: osxcross-latest
-          name: "OSXCross for High Sierra (static)"
+          name: "OSXCross for High Sierra"
           files: osxcross-toolchain.tar.gz
           make_latest: true
+          token: ${{ secrets.GITHUB_TOKEN }}
