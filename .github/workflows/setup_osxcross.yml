@@ -1,4 +1,4 @@
-name: Build OSXCross and Update Release
+name: Build OSXCross (static, no libxar)
 on:
   push:
     branches: [ main ]
@@ -7,48 +7,44 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Setup OSXCross
-        id: setup
-        uses: mbround18/setup-osxcross@v1
-        with:
-          osx-version: "10.13"
-      - name: Find OSXCross installation path
-        id: find
+      - name: Install build dependencies
         run: |
-          COMPILER=$(which o64-clang 2>/dev/null || true)
-          if [ -n "$COMPILER" ]; then
-            ROOT=$(dirname $(dirname "$COMPILER"))
-            echo "path=$ROOT" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          for candidate in /home/runner/work/_actions/mbround18/setup-osxcross/v1/osxcross \
-                           /opt/hostedtoolcache/osxcross/* \
-                           /usr/local/osxcross; do
-            if [ -d "$candidate" ] && [ -f "$candidate/bin/o64-clang" ]; then
-              echo "path=$candidate" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-          done
-          exit 1
-      - name: Package OSXCross
+          sudo apt-get update
+          sudo apt-get install -y git make cmake clang patch libxml2-dev libssl-dev
+
+      - name: Clone OSXCross
+        run: git clone https://github.com/tpoechtrager/osxcross.git
+
+      - name: Download MacOSX10.13.sdk
         run: |
-          tar -czf osxcross-toolchain.tar.gz -C "${{ steps.find.outputs.path }}" .
+          mkdir -p osxcross/tarballs
+          wget -O osxcross/tarballs/MacOSX10.13.sdk.tar.xz \
+            https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
+
+      - name: Build OSXCross with static ld64
+        run: |
+          cd osxcross
+          export OSXCROSS_LIBXAR_STATIC=1
+          UNATTENDED=1 ./build.sh
+
+      - name: Package toolchain
+        run: |
+          tar -czf osxcross-toolchain.tar.gz -C osxcross/target .
+
       - name: Delete old tag and release
         run: |
           git push origin --delete osxcross-latest || true
           git tag -d osxcross-latest || true
+
       - name: Create new tag
         run: |
           git tag osxcross-latest
           git push origin osxcross-latest
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: osxcross-latest
-          name: "OSXCross for High Sierra"
+          name: "OSXCross for High Sierra (static)"
           files: osxcross-toolchain.tar.gz
           make_latest: true
