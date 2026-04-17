@@ -2,69 +2,83 @@ name: Build OSXCross and Update Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # --- Обязательно: получаем репозиторий, чтобы работать с git ---
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # нужна вся история для работы с тегами
+
+      # --- Установка OSXCross через action ---
       - name: Setup OSXCross
-        id: osxcross
+        id: setup
         uses: mbround18/setup-osxcross@v1
         with:
           osx-version: "10.13"
 
-      # Находим реальный путь установки OSXCross
-      - name: Find OSXCross path
-        id: find-path
+      # --- Надёжный поиск пути установки OSXCross ---
+      - name: Find OSXCross installation path
+        id: find
         run: |
-          # Ищем папку, содержащую osxcross
-          OSXCROSS_PATH=$(sudo find / -type d -name "osxcross" 2>/dev/null | head -1)
-          if [ -z "$OSXCROSS_PATH" ]; then
-            # Если папка не найдена, ищем компилятор и берём его родительскую папку
-            COMPILER_PATH=$(which o64-clang 2>/dev/null || echo "")
-            if [ -n "$COMPILER_PATH" ]; then
-              OSXCROSS_PATH=$(dirname $(dirname "$COMPILER_PATH"))
-            fi
+          # Способ 1: через which o64-clang
+          COMPILER=$(which o64-clang 2>/dev/null || true)
+          if [ -n "$COMPILER" ]; then
+            ROOT=$(dirname $(dirname "$COMPILER"))
+            echo "Found via which: $ROOT"
+            echo "path=$ROOT" >> $GITHUB_OUTPUT
+            exit 0
           fi
-          echo "Found OSXCross at: $OSXCROSS_PATH"
-          echo "osxcross-path=$OSXCROSS_PATH" >> $GITHUB_OUTPUT
-
-      # Упаковываем OSXCross, только если путь найден
-      - name: Package OSXCross
-        if: steps.find-path.outputs.osxcross-path != ''
-        run: |
-          OSXCROSS_PATH="${{ steps.find-path.outputs.osxcross-path }}"
-          echo "Packaging from: $OSXCROSS_PATH"
-          tar -czf osxcross-toolchain.tar.gz -C "$OSXCROSS_PATH" .
-          ls -la osxcross-toolchain.tar.gz
-
-      # Если путь не найден — завершаем с ошибкой
-      - name: Fail if OSXCross not found
-        if: steps.find-path.outputs.osxcross-path == ''
-        run: |
-          echo "ERROR: OSXCross installation path not found!"
+          
+          # Способ 2: известные типовые пути (fallback)
+          for candidate in /home/runner/work/_actions/mbround18/setup-osxcross/v1/osxcross \
+                           /opt/hostedtoolcache/osxcross/* \
+                           /usr/local/osxcross; do
+            if [ -d "$candidate" ] && [ -f "$candidate/bin/o64-clang" ]; then
+              echo "Found via fallback: $candidate"
+              echo "path=$candidate" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          
+          echo "ERROR: OSXCross installation not found"
           exit 1
 
-      # Удалить старый тег и релиз
+      # --- Упаковка OSXCross в архив ---
+      - name: Package OSXCross
+        run: |
+          OSXCROSS_PATH="${{ steps.find.outputs.path }}"
+          echo "Packaging from: $OSXCROSS_PATH"
+          tar -czf osxcross-toolchain.tar.gz -C "$OSXCROSS_PATH" .
+          ls -lh osxcross-toolchain.tar.gz
+          # Проверка целостности архива
+          tar -tzf osxcross-toolchain.tar.gz > /dev/null
+
+      # --- Удаление старого тега и релиза (если есть) ---
       - name: Delete old tag and release
         run: |
           git push origin --delete osxcross-latest || true
           git tag -d osxcross-latest || true
 
-      # Создать новый тег
+      # --- Создание нового тега ---
       - name: Create new tag
         run: |
           git tag osxcross-latest
           git push origin osxcross-latest
 
-      # Создать релиз
+      # --- Публикация релиза с архивом ---
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: osxcross-latest
-          name: "OSXCross Latest (auto-built)"
+          name: "OSXCross for High Sierra (auto-built)"
+          body: |
+            Автоматическая сборка OSXCross для macOS 10.13.
+            Обновляется при каждом пуше в main.
           files: osxcross-toolchain.tar.gz
           make_latest: true
