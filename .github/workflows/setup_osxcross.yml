@@ -1,4 +1,4 @@
-name: Build OSXCross and Release
+name: Build OSXCross (fully static, no libxar dependency)
 on:
   push:
     branches: [ main ]
@@ -12,31 +12,49 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y git make cmake clang patch libxml2-dev libssl-dev
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git make cmake clang patch libxml2-dev libssl-dev
 
       - name: Clone OSXCross
         run: git clone https://github.com/tpoechtrager/osxcross.git
 
-      - name: Download SDK
+      - name: Download MacOSX10.13.sdk
         run: |
           mkdir -p osxcross/tarballs
-          wget -O osxcross/tarballs/MacOSX10.13.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
+          wget -O osxcross/tarballs/MacOSX10.13.sdk.tar.xz \
+            https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
 
-      - name: Build OSXCross (static)
+      - name: Build OSXCross with static ld64
         run: |
           cd osxcross
           export OSXCROSS_LIBXAR_STATIC=1
+          export LD64_LIBXAR_STATIC=1
           UNATTENDED=1 ./build.sh
 
-      - name: Package
+      - name: Verify static linker
+        run: |
+          file osxcross/target/bin/x86_64-apple-darwin17-ld | grep -q "statically linked" && echo "OK: static" || echo "Warning: may still be dynamic"
+          ldd osxcross/target/bin/x86_64-apple-darwin17-ld 2>&1 | grep "not a dynamic executable" && echo "Fully static"
+
+      - name: Package toolchain
         run: tar -czf osxcross-toolchain.tar.gz -C osxcross/target .
+
+      - name: Delete old tag and release
+        run: |
+          git push origin --delete osxcross-latest || true
+          git tag -d osxcross-latest || true
+
+      - name: Create new tag
+        run: |
+          git tag osxcross-latest
+          git push origin osxcross-latest
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: osxcross-latest
-          name: "OSXCross for High Sierra"
+          name: "OSXCross for High Sierra (fully static)"
           files: osxcross-toolchain.tar.gz
           make_latest: true
-          token: ${{ secrets.GITHUB_TOKEN }}
