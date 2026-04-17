@@ -1,0 +1,64 @@
+# .github/workflows/setup-osxcross.yml
+name: Setup OSXCross Environment
+
+# Ключевая строка: делаем workflow "вызываемым" извне
+on:
+  workflow_call:
+    # Входные параметры: версия macOS и целевая архитектура
+    inputs:
+      osx-version:
+        description: 'macOS SDK version'
+        required: true
+        type: string
+        default: '10.13'
+      target-arch:
+        description: 'Target architecture (x86_64 or arm64)'
+        required: false
+        type: string
+        default: 'x86_64'
+    # Что workflow вернёт в вызывающий репозиторий (готовый артефакт)
+    outputs:
+      compiler-path:
+        description: 'Path to the OSXCross compiler tools'
+        value: ${{ jobs.setup.outputs.compiler-path }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    # Эти выходные данные будут переданы вызывающему workflow
+    outputs:
+      compiler-path: ${{ steps.set-output.outputs.compiler-path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- Установка OSXCross ---
+      - name: Setup OSXCross
+        id: osxcross
+        uses: mbround18/setup-osxcross@v1
+        with:
+          osx-version: ${{ inputs.osx-version }}
+
+      # --- Проверка: где лежит компилятор ---
+      - name: Find compiler
+        id: find-compiler
+        run: |
+          # Находим путь к нужному компилятору
+          COMPILER_PATH=$(which o64-clang 2>/dev/null || echo "/usr/local/bin/o64-clang")
+          echo "compiler-path=$COMPILER_PATH" >> $GITHUB_OUTPUT
+
+      # --- Сохраняем всю папку OSXCross как артефакт для следующего шага ---
+      - name: Upload OSXCross artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: osxcross-env
+          path: |
+            /usr/local/osxcross
+            ${{ steps.find-compiler.outputs.compiler-path }}
+          retention-days: 1
+
+      # --- Выводим путь для вызывающего workflow ---
+      - name: Set output
+        id: set-output
+        run: |
+          echo "compiler-path=${{ steps.find-compiler.outputs.compiler-path }}" >> $GITHUB_OUTPUT
