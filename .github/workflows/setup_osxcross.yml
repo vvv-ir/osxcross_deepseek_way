@@ -1,65 +1,47 @@
-# .github/workflows/setup-osxcross.yml
-name: Setup OSXCross Environment
+name: Build OSXCross and Update Release
 
-# Ключевая строка: делаем workflow "вызываемым" извне
 on:
   push:
-  workflow_call:
-    # Входные параметры: версия macOS и целевая архитектура
-    inputs:
-      osx-version:
-        description: 'macOS SDK version'
-        required: true
-        type: string
-        default: '10.13'
-      target-arch:
-        description: 'Target architecture (x86_64 or arm64)'
-        required: false
-        type: string
-        default: 'x86_64'
-    # Что workflow вернёт в вызывающий репозиторий (готовый артефакт)
-    outputs:
-      compiler-path:
-        description: 'Path to the OSXCross compiler tools'
-        value: ${{ jobs.setup.outputs.compiler-path }}
+    branches:
+      - main          # запуск при пуше в main
+  workflow_dispatch:  # или вручную, если захотите
 
 jobs:
-  setup:
+  build:
     runs-on: ubuntu-latest
-    # Эти выходные данные будут переданы вызывающему workflow
-    outputs:
-      compiler-path: ${{ steps.set-output.outputs.compiler-path }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # --- Установка OSXCross ---
       - name: Setup OSXCross
-        id: osxcross
         uses: mbround18/setup-osxcross@v1
         with:
-          osx-version: ${{ inputs.osx-version }}
+          osx-version: "10.13"
 
-      # --- Проверка: где лежит компилятор ---
-      - name: Find compiler
-        id: find-compiler
+      - name: Package OSXCross
+        run: tar -czf osxcross-toolchain.tar.gz -C /usr/local/osxcross .
+
+      - name: Delete old tag and release (if exists)
         run: |
-          # Находим путь к нужному компилятору
-          COMPILER_PATH=$(which o64-clang 2>/dev/null || echo "/usr/local/bin/o64-clang")
-          echo "compiler-path=$COMPILER_PATH" >> $GITHUB_OUTPUT
+          # Удаляем удалённый тег (если есть)
+          git push origin --delete osxcross-latest || true
+          # Удаляем локальный тег
+          git tag -d osxcross-latest || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- Сохраняем всю папку OSXCross как артефакт для следующего шага ---
-      - name: Upload OSXCross artifact
-        uses: actions/upload-artifact@v4
+      - name: Create new tag
+        run: |
+          git tag osxcross-latest
+          git push origin osxcross-latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: osxcross-env
-          path: |
-            /usr/local/osxcross
-            ${{ steps.find-compiler.outputs.compiler-path }}
-          retention-days: 1
-
-      # --- Выводим путь для вызывающего workflow ---
-      - name: Set output
-        id: set-output
-        run: |
-          echo "compiler-path=${{ steps.find-compiler.outputs.compiler-path }}" >> $GITHUB_OUTPUT
+          tag_name: osxcross-latest
+          name: "OSXCross Latest (auto-built)"
+          body: "Автоматическая сборка OSXCross для High Sierra из последнего коммита."
+          files: osxcross-toolchain.tar.gz
+          draft: false
+          prerelease: false
+          # Важно: разрешаем перезаписывать существующий релиз с тем же тегом
+          make_latest: true
