@@ -22,7 +22,6 @@ jobs:
           COMPILER=$(which o64-clang 2>/dev/null || true)
           if [ -n "$COMPILER" ]; then
             ROOT=$(dirname $(dirname "$COMPILER"))
-            echo "Found via which: $ROOT"
             echo "path=$ROOT" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -30,20 +29,14 @@ jobs:
                            /opt/hostedtoolcache/osxcross/* \
                            /usr/local/osxcross; do
             if [ -d "$candidate" ] && [ -f "$candidate/bin/o64-clang" ]; then
-              echo "Found via fallback: $candidate"
               echo "path=$candidate" >> $GITHUB_OUTPUT
               exit 0
             fi
           done
-          echo "ERROR: OSXCross installation not found"
           exit 1
       - name: Package OSXCross
         run: |
-          OSXCROSS_PATH="${{ steps.find.outputs.path }}"
-          echo "Packaging from: $OSXCROSS_PATH"
-          tar -czf osxcross-toolchain.tar.gz -C "$OSXCROSS_PATH" .
-          ls -lh osxcross-toolchain.tar.gz
-          tar -tzf osxcross-toolchain.tar.gz > /dev/null
+          tar -czf osxcross-toolchain.tar.gz -C "${{ steps.find.outputs.path }}" .
       - name: Delete old tag and release
         run: |
           git push origin --delete osxcross-latest || true
@@ -56,6 +49,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: osxcross-latest
-          name: "OSXCross for High Sierra (auto-built)"
+          name: "OSXCross for High Sierra"
           files: osxcross-toolchain.tar.gz
           make_latest: true
