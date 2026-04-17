@@ -3,45 +3,44 @@ name: Build OSXCross and Update Release
 on:
   push:
     branches:
-      - main          # запуск при пуше в main
-  workflow_dispatch:  # или вручную, если захотите
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Шаг 1: Установить OSXCross через action
       - name: Setup OSXCross
+        id: osxcross                        # даём id, чтобы потом ссылаться на выходные данные
         uses: mbround18/setup-osxcross@v1
         with:
-          osx-version: "10.13"
+          osx-version: "10.13"              # High Sierra SDK
 
+      # Шаг 2: Упаковать OSXCross в архив, используя путь из переменной
       - name: Package OSXCross
-        run: tar -czf osxcross-toolchain.tar.gz -C /usr/local/osxcross .
-
-      - name: Delete old tag and release (if exists)
         run: |
-          # Удаляем удалённый тег (если есть)
-          git push origin --delete osxcross-latest || true
-          # Удаляем локальный тег
-          git tag -d osxcross-latest || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "OSXCross installed at: ${{ steps.osxcross.outputs.osxcross-path }}"
+          # Переходим в папку, где лежит OSXCross, и архивируем всё её содержимое
+          tar -czf osxcross-toolchain.tar.gz -C ${{ steps.osxcross.outputs.osxcross-path }} .
 
+      # Шаг 3: Удалить старый тег и релиз (если есть)
+      - name: Delete old tag and release
+        run: |
+          git push origin --delete osxcross-latest || true
+          git tag -d osxcross-latest || true
+
+      # Шаг 4: Создать новый тег
       - name: Create new tag
         run: |
           git tag osxcross-latest
           git push origin osxcross-latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Шаг 5: Создать релиз и прикрепить архив
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: osxcross-latest
           name: "OSXCross Latest (auto-built)"
-          body: "Автоматическая сборка OSXCross для High Sierra из последнего коммита."
           files: osxcross-toolchain.tar.gz
-          draft: false
-          prerelease: false
-          # Важно: разрешаем перезаписывать существующий релиз с тем же тегом
           make_latest: true
