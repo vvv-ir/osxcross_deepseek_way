@@ -10,33 +10,57 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Шаг 1: Установить OSXCross через action
       - name: Setup OSXCross
-        id: osxcross                        # даём id, чтобы потом ссылаться на выходные данные
+        id: osxcross
         uses: mbround18/setup-osxcross@v1
         with:
-          osx-version: "10.13"              # High Sierra SDK
+          osx-version: "10.13"
 
-      # Шаг 2: Упаковать OSXCross в архив, используя путь из переменной
-      - name: Package OSXCross
+      # Находим реальный путь установки OSXCross
+      - name: Find OSXCross path
+        id: find-path
         run: |
-          echo "OSXCross installed at: ${{ steps.osxcross.outputs.osxcross-path }}"
-          # Переходим в папку, где лежит OSXCross, и архивируем всё её содержимое
-          tar -czf osxcross-toolchain.tar.gz -C ${{ steps.osxcross.outputs.osxcross-path }} .
+          # Ищем папку, содержащую osxcross
+          OSXCROSS_PATH=$(sudo find / -type d -name "osxcross" 2>/dev/null | head -1)
+          if [ -z "$OSXCROSS_PATH" ]; then
+            # Если папка не найдена, ищем компилятор и берём его родительскую папку
+            COMPILER_PATH=$(which o64-clang 2>/dev/null || echo "")
+            if [ -n "$COMPILER_PATH" ]; then
+              OSXCROSS_PATH=$(dirname $(dirname "$COMPILER_PATH"))
+            fi
+          fi
+          echo "Found OSXCross at: $OSXCROSS_PATH"
+          echo "osxcross-path=$OSXCROSS_PATH" >> $GITHUB_OUTPUT
 
-      # Шаг 3: Удалить старый тег и релиз (если есть)
+      # Упаковываем OSXCross, только если путь найден
+      - name: Package OSXCross
+        if: steps.find-path.outputs.osxcross-path != ''
+        run: |
+          OSXCROSS_PATH="${{ steps.find-path.outputs.osxcross-path }}"
+          echo "Packaging from: $OSXCROSS_PATH"
+          tar -czf osxcross-toolchain.tar.gz -C "$OSXCROSS_PATH" .
+          ls -la osxcross-toolchain.tar.gz
+
+      # Если путь не найден — завершаем с ошибкой
+      - name: Fail if OSXCross not found
+        if: steps.find-path.outputs.osxcross-path == ''
+        run: |
+          echo "ERROR: OSXCross installation path not found!"
+          exit 1
+
+      # Удалить старый тег и релиз
       - name: Delete old tag and release
         run: |
           git push origin --delete osxcross-latest || true
           git tag -d osxcross-latest || true
 
-      # Шаг 4: Создать новый тег
+      # Создать новый тег
       - name: Create new tag
         run: |
           git tag osxcross-latest
           git push origin osxcross-latest
 
-      # Шаг 5: Создать релиз и прикрепить архив
+      # Создать релиз
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
