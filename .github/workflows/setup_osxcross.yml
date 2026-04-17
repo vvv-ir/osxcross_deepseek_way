@@ -3,6 +3,7 @@ name: Setup OSXCross Environment
 
 # Ключевая строка: делаем workflow "вызываемым" извне
 on:
+  push:
   workflow_call:
     # Входные параметры: версия macOS и целевая архитектура
     inputs:
