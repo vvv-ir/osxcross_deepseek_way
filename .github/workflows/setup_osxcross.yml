@@ -1,32 +1,24 @@
 name: Build OSXCross and Update Release
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      # --- Обязательно: получаем репозиторий, чтобы работать с git ---
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # нужна вся история для работы с тегами
-
-      # --- Установка OSXCross через action ---
+          fetch-depth: 0
       - name: Setup OSXCross
         id: setup
         uses: mbround18/setup-osxcross@v1
         with:
           osx-version: "10.13"
-
-      # --- Надёжный поиск пути установки OSXCross ---
       - name: Find OSXCross installation path
         id: find
         run: |
-          # Способ 1: через which o64-clang
           COMPILER=$(which o64-clang 2>/dev/null || true)
           if [ -n "$COMPILER" ]; then
             ROOT=$(dirname $(dirname "$COMPILER"))
@@ -34,8 +26,6 @@ jobs:
             echo "path=$ROOT" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
-          # Способ 2: известные типовые пути (fallback)
           for candidate in /home/runner/work/_actions/mbround18/setup-osxcross/v1/osxcross \
                            /opt/hostedtoolcache/osxcross/* \
                            /usr/local/osxcross; do
@@ -45,40 +35,27 @@ jobs:
               exit 0
             fi
           done
-          
           echo "ERROR: OSXCross installation not found"
           exit 1
-
-      # --- Упаковка OSXCross в архив ---
       - name: Package OSXCross
         run: |
           OSXCROSS_PATH="${{ steps.find.outputs.path }}"
           echo "Packaging from: $OSXCROSS_PATH"
           tar -czf osxcross-toolchain.tar.gz -C "$OSXCROSS_PATH" .
           ls -lh osxcross-toolchain.tar.gz
-          # Проверка целостности архива
           tar -tzf osxcross-toolchain.tar.gz > /dev/null
-
-      # --- Удаление старого тега и релиза (если есть) ---
       - name: Delete old tag and release
         run: |
           git push origin --delete osxcross-latest || true
           git tag -d osxcross-latest || true
-
-      # --- Создание нового тега ---
       - name: Create new tag
         run: |
           git tag osxcross-latest
           git push origin osxcross-latest
-
-      # --- Публикация релиза с архивом ---
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: osxcross-latest
           name: "OSXCross for High Sierra (auto-built)"
-          body: |
-            Автоматическая сборка OSXCross для macOS 10.13.
-            Обновляется при каждом пуше в main.
           files: osxcross-toolchain.tar.gz
           make_latest: true
