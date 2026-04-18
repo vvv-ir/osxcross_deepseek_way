@@ -65,11 +65,20 @@ jobs:
             cp -r ${BUILD_PREFIX}/src/SDK/* ${BUILD_PREFIX}/SDK/ 2>/dev/null || true
           fi
 
-      - name: ✅ Verify toolchain
+      - name: ✅ Verify toolchain and SDK
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           x86_64-apple-darwin17-clang --version
-          echo "✅ osxcross ready!"
+          
+          echo "🔍 Checking SDK..."
+          if [ -d "${BUILD_PREFIX}/SDK/MacOSX10.13.sdk" ]; then
+            echo "✅ SDK found at ${BUILD_PREFIX}/SDK/MacOSX10.13.sdk"
+            ls -la ${BUILD_PREFIX}/SDK/MacOSX10.13.sdk/usr/include | head -10
+          else
+            echo "❌ SDK not found!"
+            ls -la ${BUILD_PREFIX}/SDK/
+            exit 1
+          fi
 
       - name: 📦 Build zlib FOR macOS
         run: |
@@ -81,16 +90,22 @@ jobs:
           export LDFLAGS="-mmacosx-version-min=10.13"
           
           cd ${BUILD_PREFIX}/sources
+          echo "📥 Downloading zlib..."
           wget -q https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz
           tar xzf v1.3.1.tar.gz
           cd zlib-1.3.1
           
+          echo "🔧 Configuring zlib..."
           ./configure --prefix=${BUILD_PREFIX}/libs/zlib --static
+          
+          echo "🔨 Building zlib..."
           make libz.a
+          
+          echo "📦 Installing zlib..."
           make install
           
+          echo "✅ zlib built!"
           ls -lh ${BUILD_PREFIX}/libs/zlib/lib/
-          echo "✅ zlib built for macOS"
 
       - name: 🖼️ Build libpng FOR macOS
         continue-on-error: true
@@ -102,15 +117,21 @@ jobs:
           export CPPFLAGS="-I${BUILD_PREFIX}/libs/zlib/include"
           
           cd ${BUILD_PREFIX}/sources
+          echo "📥 Downloading libpng..."
           wget -q https://github.com/glennrp/libpng/archive/refs/tags/v1.6.40.tar.gz
           tar xzf v1.6.40.tar.gz
           cd libpng-1.6.40
           
+          echo "🔧 Configuring libpng..."
           ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libpng --disable-shared
+          
+          echo "🔨 Building libpng..."
           make
+          
+          echo "📦 Installing libpng..."
           make install
           
-          echo "✅ libpng built for macOS"
+          echo "✅ libpng built!"
 
       - name: 📷 Build libjpeg FOR macOS
         continue-on-error: true
@@ -118,11 +139,13 @@ jobs:
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           
           cd ${BUILD_PREFIX}/sources
+          echo "📥 Downloading libjpeg..."
           wget -q https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.0.1.tar.gz
           tar xzf 3.0.1.tar.gz
           cd libjpeg-turbo-3.0.1
           mkdir -p build && cd build
           
+          echo "🔧 Configuring libjpeg..."
           cmake -DCMAKE_SYSTEM_NAME=Darwin \
                 -DCMAKE_C_COMPILER=x86_64-apple-darwin17-clang \
                 -DCMAKE_CXX_COMPILER=x86_64-apple-darwin17-clang++ \
@@ -133,10 +156,13 @@ jobs:
                 -DWITH_SIMD=OFF \
                 ..
           
+          echo "🔨 Building libjpeg..."
           make
+          
+          echo "📦 Installing libjpeg..."
           make install
           
-          echo "✅ libjpeg built for macOS"
+          echo "✅ libjpeg built!"
 
       - name: 🎬 Build libtiff FOR macOS
         continue-on-error: true
@@ -148,15 +174,21 @@ jobs:
           export CPPFLAGS="-I${BUILD_PREFIX}/libs/zlib/include -I${BUILD_PREFIX}/libs/libjpeg/include"
           
           cd ${BUILD_PREFIX}/sources
+          echo "📥 Downloading libtiff..."
           wget -q https://github.com/LibTIFF/libtiff/archive/refs/tags/v4.6.0.tar.gz
           tar xzf v4.6.0.tar.gz
           cd libtiff-4.6.0
           
+          echo "🔧 Configuring libtiff..."
           ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libtiff --disable-shared
+          
+          echo "🔨 Building libtiff..."
           make
+          
+          echo "📦 Installing libtiff..."
           make install
           
-          echo "✅ libtiff built for macOS"
+          echo "✅ libtiff built!"
 
       - name: 📄 Build libxml2 FOR macOS
         continue-on-error: true
@@ -168,15 +200,21 @@ jobs:
           export CPPFLAGS="-I${BUILD_PREFIX}/libs/zlib/include"
           
           cd ${BUILD_PREFIX}/sources
+          echo "📥 Downloading libxml2..."
           wget -q https://download.gnome.org/sources/libxml2/2.11/libxml2-2.11.5.tar.xz
           tar xf libxml2-2.11.5.tar.xz
           cd libxml2-2.11.5
           
+          echo "🔧 Configuring libxml2..."
           ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libxml2 --without-python --disable-shared
+          
+          echo "🔨 Building libxml2..."
           make
+          
+          echo "📦 Installing libxml2..."
           make install
           
-          echo "✅ libxml2 built for macOS"
+          echo "✅ libxml2 built!"
 
       - name: 📚 Build Boost FOR macOS
         continue-on-error: true
@@ -186,17 +224,23 @@ jobs:
           export CXXFLAGS="-mmacosx-version-min=10.13 -isysroot ${BUILD_PREFIX}/SDK/MacOSX10.13.sdk -stdlib=libc++"
           
           cd ${BUILD_PREFIX}/sources
+          echo "📥 Downloading Boost..."
           wget -q https://sourceforge.net/projects/boost/files/boost/1.82.0/boost_1_82_0.tar.bz2/download -O boost_1_82_0.tar.bz2 || \
           wget -q https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.bz2
           
           tar xjf boost_1_82_0.tar.bz2
           cd boost_1_82_0
           
+          echo "🔧 Configuring Boost..."
           ./bootstrap.sh --prefix=${BUILD_PREFIX}/libs/boost
+          
+          echo "🔨 Building Boost..."
           ./b2 -j4 --with-system toolset=clang cxxflags="-fPIC -stdlib=libc++" link=static
+          
+          echo "📦 Installing Boost..."
           ./b2 install
           
-          echo "✅ Boost built for macOS"
+          echo "✅ Boost built!"
 
       - name: 🔐 Build OpenSSL FOR macOS
         continue-on-error: true
@@ -206,15 +250,21 @@ jobs:
           export CFLAGS="-mmacosx-version-min=10.13 -isysroot ${BUILD_PREFIX}/SDK/MacOSX10.13.sdk"
           
           cd ${BUILD_PREFIX}/sources
+          echo "📥 Downloading OpenSSL..."
           wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz
           tar xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
           
+          echo "🔧 Configuring OpenSSL..."
           ./Configure darwin64-x86_64 shared --prefix=${BUILD_PREFIX}/libs/openssl -mmacosx-version-min=10.13
+          
+          echo "🔨 Building OpenSSL..."
           make
+          
+          echo "📦 Installing OpenSSL..."
           make install
           
-          echo "✅ OpenSSL built for macOS"
+          echo "✅ OpenSSL built!"
 
       - name: 📖 Create README
         run: |
@@ -240,6 +290,8 @@ jobs:
           tar xzf osxcross-complete-highsierra-*.tar.gz -C /opt/
           export OSXCROSS_ROOT=/opt/osxcross
           export PATH=$OSXCROSS_ROOT/target/bin:$PATH
+          export LD_LIBRARY_PATH=$OSXCROSS_ROOT/libs/lib:$LD_LIBRARY_PATH
+          export PKG_CONFIG_PATH=$OSXCROSS_ROOT/libs/lib/pkgconfig:$PKG_CONFIG_PATH
           ```
           
           ## 💻 Usage
@@ -257,7 +309,7 @@ jobs:
             -isysroot $OSXCROSS_ROOT/SDK/MacOSX10.13.sdk \
             -L$OSXCROSS_ROOT/libs/lib \
             -I$OSXCROSS_ROOT/libs/include \
-            -o program program.c -lz -lpng -ljpeg -lxml2
+            -o program program.c -lz -lpng -ljpeg -ltiff -lxml2
           ```
           
           ### CMake
@@ -272,17 +324,43 @@ jobs:
           make
           ```
           
+          ### Autotools
+          ```bash
+          export CC=x86_64-apple-darwin17-clang
+          export CXX=x86_64-apple-darwin17-clang++
+          export CFLAGS="-mmacosx-version-min=10.13 -isysroot $OSXCROSS_ROOT/SDK/MacOSX10.13.sdk"
+          export CXXFLAGS="-mmacosx-version-min=10.13 -isysroot $OSXCROSS_ROOT/SDK/MacOSX10.13.sdk"
+          export LDFLAGS="-L$OSXCROSS_ROOT/libs/lib"
+          export CPPFLAGS="-I$OSXCROSS_ROOT/libs/include"
+          
+          ./configure --host=x86_64-apple-darwin17 --prefix=/usr/local
+          make
+          ```
+          
           ## ✨ Features
           
-          ✅ Compile C/C++ for macOS from Linux
-          ✅ Pre-built libraries ready to link
+          ✅ Complete cross-compilation environment
+          ✅ All libraries compiled for macOS
           ✅ Works in CI/CD pipelines
-          ✅ Complete development environment
+          ✅ Ready for production use
           
           **Happy cross-compiling! 🎉**
           EOF
           
           cat ${BUILD_PREFIX}/README.md
+
+      - name: 📊 Check what was built
+        run: |
+          echo "📂 osxcross toolchain:"
+          ls -lh ${BUILD_PREFIX}/target/bin/x86_64-apple-darwin17-* | wc -l
+          
+          echo ""
+          echo "📂 macOS libraries:"
+          find ${BUILD_PREFIX}/libs/lib -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) 2>/dev/null | sort
+          
+          echo ""
+          echo "📂 SDK:"
+          du -sh ${BUILD_PREFIX}/SDK/MacOSX10.13.sdk
 
       - name: 📦 Create release archive
         run: |
@@ -292,7 +370,7 @@ jobs:
           
           echo "📦 Creating final archive..."
           echo ""
-          echo "📊 Contents:"
+          echo "📊 Contents size:"
           du -sh target/ SDK/ libs/ README.md 2>/dev/null
           
           tar --exclude='tarballs' \
@@ -306,7 +384,7 @@ jobs:
           echo "RELEASE_NAME=${RELEASE_NAME}" >> $GITHUB_ENV
           
           echo ""
-          echo "✅ Done!"
+          echo "✅ Archive created!"
           ls -lh osxcross-complete-highsierra-*
 
       - name: ☁️ Upload to Artifacts
@@ -330,12 +408,12 @@ jobs:
           body: |
             # 🍎 OSXCross Complete Release - macOS High Sierra (10.13)
             
-            ✅ **Complete cross-compilation environment for macOS!**
+            ✅ **Complete cross-compilation environment!**
             
             ## 📦 Included
             - osxcross x86_64-apple-darwin17 toolchain
             - macOS 10.13 SDK
-            - macOS-compiled libraries (zlib, libpng, libjpeg, libtiff, libxml2, Boost, OpenSSL)
+            - Pre-built macOS libraries (zlib, libpng, libjpeg, libtiff, libxml2, Boost, OpenSSL)
             
             ## 🚀 Quick Start
             ```bash
@@ -345,13 +423,13 @@ jobs:
             x86_64-apple-darwin17-clang --version
             ```
             
-            ## 💻 Compile
+            ## 💻 Compile for macOS
             ```bash
             x86_64-apple-darwin17-clang -mmacosx-version-min=10.13 \
               -isysroot $OSXCROSS_ROOT/SDK/MacOSX10.13.sdk \
               -L$OSXCROSS_ROOT/libs/lib \
               -I$OSXCROSS_ROOT/libs/include \
-              -o program program.c
+              -o program program.c -lz -lpng -ljpeg
             ```
             
             See README.md in archive for full documentation!
