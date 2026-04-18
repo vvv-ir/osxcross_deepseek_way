@@ -63,8 +63,8 @@ jobs:
       - name: Verify toolchain
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
-          which x86_64-apple-darwin13-clang
-          x86_64-apple-darwin13-clang --version
+          which x86_64-apple-darwin17-clang
+          x86_64-apple-darwin17-clang --version
 
       - name: Build OpenSSL
         run: |
@@ -73,7 +73,7 @@ jobs:
           wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz
           tar xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
-          CC=x86_64-apple-darwin13-clang ./Configure darwin64-x86_64 shared --prefix=${BUILD_PREFIX}/libs/openssl
+          CC=x86_64-apple-darwin17-clang ./Configure darwin64-x86_64 shared --prefix=${BUILD_PREFIX}/libs/openssl
           make -j16
           make install
 
@@ -84,7 +84,7 @@ jobs:
           wget -q https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz
           tar xzf v1.3.1.tar.gz
           cd zlib-1.3.1
-          CC=x86_64-apple-darwin13-clang ./configure --prefix=${BUILD_PREFIX}/libs/zlib
+          CC=x86_64-apple-darwin17-clang ./configure --prefix=${BUILD_PREFIX}/libs/zlib
           make -j16
           make install
 
@@ -95,7 +95,7 @@ jobs:
           git clone --depth=1 https://github.com/glennrp/libpng.git
           cd libpng
           autoreconf -fiv
-          CC=x86_64-apple-darwin13-clang ./configure --host=x86_64-apple-darwin13 --prefix=${BUILD_PREFIX}/libs/libpng
+          CC=x86_64-apple-darwin17-clang ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libpng
           make -j16
           make install
 
@@ -106,7 +106,7 @@ jobs:
           git clone --depth=1 https://github.com/libjpeg-turbo/libjpeg-turbo.git
           cd libjpeg-turbo
           mkdir -p build && cd build
-          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin13-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin13-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/libjpeg -DENABLE_SHARED=ON ..
+          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin17-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin17-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/libjpeg -DENABLE_SHARED=ON ..
           make -j16
           make install
 
@@ -117,7 +117,7 @@ jobs:
           git clone --depth=1 https://github.com/LibTIFF/libtiff.git
           cd libtiff
           autoreconf -fiv
-          CC=x86_64-apple-darwin13-clang ./configure --host=x86_64-apple-darwin13 --prefix=${BUILD_PREFIX}/libs/libtiff
+          CC=x86_64-apple-darwin17-clang ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libtiff
           make -j16
           make install
 
@@ -128,7 +128,7 @@ jobs:
           wget -q https://download.gnome.org/sources/libxml2/2.11/libxml2-2.11.5.tar.xz
           tar xf libxml2-2.11.5.tar.xz
           cd libxml2-2.11.5
-          CC=x86_64-apple-darwin13-clang ./configure --host=x86_64-apple-darwin13 --prefix=${BUILD_PREFIX}/libs/libxml2 --without-python
+          CC=x86_64-apple-darwin17-clang ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libxml2 --without-python
           make -j16
           make install
 
@@ -150,7 +150,7 @@ jobs:
           git clone --depth=1 --branch v2.4.17.0 https://github.com/OpenImageIO/oiio.git
           cd oiio
           mkdir -p build && cd build
-          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin13-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin13-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/oiio -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF ..
+          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin17-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin17-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/oiio -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF ..
           make -j16
           make install
 
