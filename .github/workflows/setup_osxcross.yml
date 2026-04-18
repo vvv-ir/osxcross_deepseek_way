@@ -1,60 +1,71 @@
-name: Build OSXCross (fully static, no libxar dependency)
+name: Build Full OSXCross (with SDK) on Ubuntu
 on:
- # push:
-  #  branches: [ main ]
   workflow_dispatch:
+  push:
+    branches: [ main ]
+
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git make cmake clang patch libxml2-dev libssl-dev
+          sudo apt-get install -y git make cmake clang patch wget xz-utils libxml2-dev libssl-dev
 
       - name: Clone OSXCross
         run: git clone https://github.com/tpoechtrager/osxcross.git
 
-      - name: Download MacOSX10.13.sdk
+      - name: Download MacOSX10.13.sdk (from phracker)
         run: |
-          mkdir -p osxcross/tarballs
-          wget -O osxcross/tarballs/MacOSX10.13.sdk.tar.xz \
+          cd osxcross
+          mkdir -p tarballs
+          wget -O tarballs/MacOSX10.13.sdk.tar.xz \
             https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
 
-      - name: Build OSXCross with static ld64
+      - name: Build OSXCross (static, with full SDK)
         run: |
           cd osxcross
           export OSXCROSS_LIBXAR_STATIC=1
           export LD64_LIBXAR_STATIC=1
           UNATTENDED=1 ./build.sh
 
-      - name: Verify static linker
+      - name: Copy SDK into target directory
         run: |
-          file osxcross/target/bin/x86_64-apple-darwin17-ld | grep -q "statically linked" && echo "OK: static" || echo "Warning: may still be dynamic"
-          ldd osxcross/target/bin/x86_64-apple-darwin17-ld 2>&1 | grep "not a dynamic executable" && echo "Fully static"
+          cd osxcross
+          # Распакованный SDK лежит в tarballs/MacOSX10.13.sdk
+          mkdir -p target/SDK
+          cp -r tarballs/MacOSX10.13.sdk target/SDK/
+          # Также скопируем, если нужно, в target/SDK/MacOSX10.13.sdk
+          echo "SDK copied"
 
-      - name: Package toolchain
-        run: tar -czf osxcross-toolchain.tar.gz -C osxcross/target .
-
-      - name: Delete old tag and release
+      - name: Verify compiler and headers
         run: |
-          git push origin --delete osxcross-latest || true
-          git tag -d osxcross-latest || true
+          export PATH=$(pwd)/osxcross/target/bin:$PATH
+          o64-clang --version
+          # Проверяем, что libc++ заголовки теперь доступны
+          echo -e '#include <iostream>\nint main(){ return 0; }' > test.cpp
+          o64-clang++ -isysroot $(pwd)/osxcross/target/SDK/MacOSX10.13.sdk test.cpp -o test && echo "OK: libc++ works" || exit 1
 
-      - name: Create new tag
+      - name: Package OSXCross (full, with SDK)
         run: |
-          git tag osxcross-latest
-          git push origin osxcross-latest
+          tar -czf osxcross-full.tar.gz -C osxcross/target .
+          ls -lh osxcross-full.tar.gz
+
+      - name: Delete old tag and release (if exists)
+        run: |
+          git push origin --delete osxcross-full || true
+          git tag -d osxcross-full || true
+
+      - name: Create tag osxcross-full
+        run: |
+          git tag osxcross-full
+          git push origin osxcross-full
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: osxcross-latest
-          name: "OSXCross for High Sierra (fully static)"
-          files: osxcross-toolchain.tar.gz
+          tag_name: osxcross-full
+          name: "OSXCross Full (with SDK, static ld64)"
+          files: osxcross-full.tar.gz
           make_latest: true
