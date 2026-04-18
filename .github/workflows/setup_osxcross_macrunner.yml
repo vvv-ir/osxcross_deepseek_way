@@ -1,0 +1,55 @@
+name: Build Full OSXCross (with libc++ headers) on macOS
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13
+    steps:
+      - name: Install dependencies
+        run: brew install cmake ninja wget xz
+
+      - name: Clone OSXCross
+        run: git clone https://github.com/tpoechtrager/osxcross.git
+
+      - name: Download MacOSX10.13.sdk (official from phracker)
+        run: |
+          cd osxcross
+          mkdir -p tarballs
+          wget -O tarballs/MacOSX10.13.sdk.tar.xz \
+            https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
+
+      - name: Build OSXCross (static, with full SDK)
+        run: |
+          cd osxcross
+          export OSXCROSS_LIBXAR_STATIC=1
+          export LD64_LIBXAR_STATIC=1
+          UNATTENDED=1 ./build.sh
+
+      - name: Verify compiler and headers
+        run: |
+          export PATH=$(pwd)/osxcross/target/bin:$PATH
+          o64-clang --version
+          echo -e '#include <iostream>\nint main(){ return 0; }' > test.cpp
+          o64-clang++ test.cpp -o test && echo "OK: libc++ works" || exit 1
+
+      - name: Package OSXCross (full)
+        run: tar -czf osxcross-full.tar.gz -C osxcross/target .
+
+      - name: Delete old tag and release (if exists)
+        run: |
+          git push origin --delete osxcross-full || true
+          git tag -d osxcross-full || true
+
+      - name: Create tag osxcross-full
+        run: |
+          git tag osxcross-full
+          git push origin osxcross-full
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: osxcross-full
+          name: "OSXCross Full (with libc++ headers, static ld64)"
+          files: osxcross-full.tar.gz
+          make_latest: true
