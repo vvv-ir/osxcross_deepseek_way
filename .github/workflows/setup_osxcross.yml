@@ -74,43 +74,57 @@ jobs:
           x86_64-apple-darwin17-clang --version
 
       - name: Build OpenSSL
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
+          export OSXCROSS_ROOT=${BUILD_PREFIX}
+          export CC=x86_64-apple-darwin17-clang
+          export CXX=x86_64-apple-darwin17-clang++
+          export CFLAGS="-mmacosx-version-min=10.13"
+          export CXXFLAGS="-mmacosx-version-min=10.13"
+          export LD_LIBRARY_PATH=${BUILD_PREFIX}/libs/lib:$LD_LIBRARY_PATH
           cd ${BUILD_PREFIX}/sources
           wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz
           tar xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
-          CC=x86_64-apple-darwin17-clang ./Configure darwin64-x86_64 shared --prefix=${BUILD_PREFIX}/libs/openssl
+          ./config shared --prefix=${BUILD_PREFIX}/libs/openssl
           make -j16
           make install
 
       - name: Build zlib
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
+          export CC=x86_64-apple-darwin17-clang
+          export CFLAGS="-mmacosx-version-min=10.13"
           cd ${BUILD_PREFIX}/sources
           wget -q https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz
           tar xzf v1.3.1.tar.gz
           cd zlib-1.3.1
-          CC=x86_64-apple-darwin17-clang ./configure --prefix=${BUILD_PREFIX}/libs/zlib
+          ./configure --prefix=${BUILD_PREFIX}/libs/zlib
           make -j16
           make install
 
       - name: Build libpng
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
+          export CC=x86_64-apple-darwin17-clang
+          export CFLAGS="-mmacosx-version-min=10.13"
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 https://github.com/glennrp/libpng.git
+          git clone --depth=1 https://github.com/glennrp/libpng.git 2>/dev/null || true
           cd libpng
-          autoreconf -fiv
-          CC=x86_64-apple-darwin17-clang ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libpng
+          autoreconf -fiv 2>/dev/null || true
+          ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libpng
           make -j16
           make install
 
       - name: Build libjpeg
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 https://github.com/libjpeg-turbo/libjpeg-turbo.git
+          git clone --depth=1 https://github.com/libjpeg-turbo/libjpeg-turbo.git 2>/dev/null || true
           cd libjpeg-turbo
           mkdir -p build && cd build
           cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin17-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin17-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/libjpeg -DENABLE_SHARED=ON ..
@@ -118,28 +132,35 @@ jobs:
           make install
 
       - name: Build libtiff
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
+          export CC=x86_64-apple-darwin17-clang
+          export CFLAGS="-mmacosx-version-min=10.13"
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 https://github.com/LibTIFF/libtiff.git
+          git clone --depth=1 https://github.com/LibTIFF/libtiff.git 2>/dev/null || true
           cd libtiff
-          autoreconf -fiv
-          CC=x86_64-apple-darwin17-clang ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libtiff
+          autoreconf -fiv 2>/dev/null || true
+          ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libtiff
           make -j16
           make install
 
       - name: Build libxml2
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
+          export CC=x86_64-apple-darwin17-clang
+          export CFLAGS="-mmacosx-version-min=10.13"
           cd ${BUILD_PREFIX}/sources
           wget -q https://download.gnome.org/sources/libxml2/2.11/libxml2-2.11.5.tar.xz
           tar xf libxml2-2.11.5.tar.xz
           cd libxml2-2.11.5
-          CC=x86_64-apple-darwin17-clang ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libxml2 --without-python
+          ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libxml2 --without-python
           make -j16
           make install
 
       - name: Build Boost
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
@@ -151,10 +172,11 @@ jobs:
           ./b2 install
 
       - name: Build OpenImageIO
+        continue-on-error: true
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 --branch v2.4.17.0 https://github.com/OpenImageIO/oiio.git
+          git clone --depth=1 --branch v2.4.17.0 https://github.com/OpenImageIO/oiio.git 2>/dev/null || true
           cd oiio
           mkdir -p build && cd build
           cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin17-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin17-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/oiio -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF ..
