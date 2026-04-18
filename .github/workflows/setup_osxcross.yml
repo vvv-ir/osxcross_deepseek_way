@@ -11,7 +11,6 @@ on:
 
 env:
   OSXCROSS_SDK_VERSION: '10.13'
-  MACOS_TARGET: 'high-sierra'
   BUILD_PREFIX: '/opt/osxcross'
   JOBS: 16
 
@@ -39,99 +38,122 @@ jobs:
         run: |
           cd ${BUILD_PREFIX}
           git clone --recursive https://github.com/tpoechtrager/osxcross.git src
-          cd src
-          git log --oneline -10
 
       - name: Download macOS High Sierra SDK
         run: |
-          cd ${BUILD_PREFIX}/tarballs
-          wget -q -T 30 --tries=3 -O MacOSX10.13.sdk.tar.xz https://github.com/joseluisq/macosx-sdks/releases/download/10.13/MacOSX10.13.sdk.tar.xz || curl -L -o MacOSX10.13.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
-          tar -xf MacOSX10.13.sdk.tar.xz -C ${BUILD_PREFIX}/SDK/
-          ls -lah ${BUILD_PREFIX}/SDK/
+          cd ${BUILD_PREFIX}
+          echo "Downloading SDK..."
+          wget -q -T 60 --tries=5 -O MacOSX10.13.sdk.tar.xz https://github.com/joseluisq/macosx-sdks/releases/download/10.13/MacOSX10.13.sdk.tar.xz
+          if [ ! -f MacOSX10.13.sdk.tar.xz ]; then
+            echo "First mirror failed, trying alternative..."
+            wget -q -T 60 --tries=5 -O MacOSX10.13.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
+          fi
+          tar -xf MacOSX10.13.sdk.tar.xz -C SDK/
+          ls -la SDK/
 
       - name: Build osxcross toolchain
         run: |
           cd ${BUILD_PREFIX}/src
-          export UNATTENDED=1 FORCE_PACK_EDH=1 OSXCROSS_ROOT=${BUILD_PREFIX} SDK_VERSION=${OSXCROSS_SDK_VERSION} JOBS=${JOBS}
-          ./build.sh 2>&1 | tee build_osxcross.log
+          export UNATTENDED=1
+          export FORCE_PACK_EDH=1
+          export OSXCROSS_ROOT=${BUILD_PREFIX}
+          export SDK_VERSION=10.13
+          export JOBS=16
+          ./build.sh
 
-      - name: Verify osxcross installation
+      - name: Verify toolchain
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
-          x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang --version
+          which x86_64-apple-darwin13-clang
+          x86_64-apple-darwin13-clang --version
 
       - name: Build OpenSSL
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
           wget -q https://www.openssl.org/source/openssl-1.1.1w.tar.gz
-          tar xzf openssl-1.1.1w.tar.gz && cd openssl-1.1.1w
-          CC=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang ./Configure darwin64-x86_64 shared --prefix=${BUILD_PREFIX}/libs/openssl 2>&1 | tail -20
-          make -j${JOBS} 2>&1 | tail -20 && make install
+          tar xzf openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
+          CC=x86_64-apple-darwin13-clang ./Configure darwin64-x86_64 shared --prefix=${BUILD_PREFIX}/libs/openssl
+          make -j16
+          make install
 
       - name: Build zlib
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
           wget -q https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz
-          tar xzf v1.3.1.tar.gz && cd zlib-1.3.1
-          CC=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang ./configure --prefix=${BUILD_PREFIX}/libs/zlib 2>&1 | tail -20
-          make -j${JOBS} 2>&1 | tail -20 && make install
+          tar xzf v1.3.1.tar.gz
+          cd zlib-1.3.1
+          CC=x86_64-apple-darwin13-clang ./configure --prefix=${BUILD_PREFIX}/libs/zlib
+          make -j16
+          make install
 
       - name: Build libpng
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 https://github.com/glennrp/libpng.git 2>/dev/null || true
-          cd libpng && autoreconf -fiv 2>&1 | tail -10 || true
-          CC=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang ./configure --host=x86_64-apple-darwin${OSXCROSS_SDK_VERSION} --prefix=${BUILD_PREFIX}/libs/libpng 2>&1 | tail -20
-          make -j${JOBS} 2>&1 | tail -20 && make install
+          git clone --depth=1 https://github.com/glennrp/libpng.git
+          cd libpng
+          autoreconf -fiv
+          CC=x86_64-apple-darwin13-clang ./configure --host=x86_64-apple-darwin13 --prefix=${BUILD_PREFIX}/libs/libpng
+          make -j16
+          make install
 
       - name: Build libjpeg
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 https://github.com/libjpeg-turbo/libjpeg-turbo.git 2>/dev/null || true
-          cd libjpeg-turbo && mkdir -p build && cd build
-          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/libjpeg -DENABLE_SHARED=ON .. 2>&1 | tail -20
-          make -j${JOBS} 2>&1 | tail -20 && make install
+          git clone --depth=1 https://github.com/libjpeg-turbo/libjpeg-turbo.git
+          cd libjpeg-turbo
+          mkdir -p build && cd build
+          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin13-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin13-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/libjpeg -DENABLE_SHARED=ON ..
+          make -j16
+          make install
 
       - name: Build libtiff
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 https://github.com/LibTIFF/libtiff.git 2>/dev/null || true
-          cd libtiff && autoreconf -fiv 2>&1 | tail -10 || true
-          CC=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang ./configure --host=x86_64-apple-darwin${OSXCROSS_SDK_VERSION} --prefix=${BUILD_PREFIX}/libs/libtiff 2>&1 | tail -20
-          make -j${JOBS} 2>&1 | tail -20 && make install
+          git clone --depth=1 https://github.com/LibTIFF/libtiff.git
+          cd libtiff
+          autoreconf -fiv
+          CC=x86_64-apple-darwin13-clang ./configure --host=x86_64-apple-darwin13 --prefix=${BUILD_PREFIX}/libs/libtiff
+          make -j16
+          make install
 
       - name: Build libxml2
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
           wget -q https://download.gnome.org/sources/libxml2/2.11/libxml2-2.11.5.tar.xz
-          tar xf libxml2-2.11.5.tar.xz && cd libxml2-2.11.5
-          CC=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang ./configure --host=x86_64-apple-darwin${OSXCROSS_SDK_VERSION} --prefix=${BUILD_PREFIX}/libs/libxml2 --without-python 2>&1 | tail -20
-          make -j${JOBS} 2>&1 | tail -20 && make install
+          tar xf libxml2-2.11.5.tar.xz
+          cd libxml2-2.11.5
+          CC=x86_64-apple-darwin13-clang ./configure --host=x86_64-apple-darwin13 --prefix=${BUILD_PREFIX}/libs/libxml2 --without-python
+          make -j16
+          make install
 
       - name: Build Boost
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
           wget -q https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.bz2
-          tar xjf boost_1_82_0.tar.bz2 && cd boost_1_82_0
-          ./bootstrap.sh --prefix=${BUILD_PREFIX}/libs/boost 2>&1 | tail -10
-          ./b2 -j${JOBS} --with-system --with-filesystem --with-thread --with-date_time --with-regex --with-chrono toolset=clang cxxflags="-fPIC -stdlib=libc++" link=shared 2>&1 | tail -20
-          ./b2 install 2>&1 | tail -10
+          tar xjf boost_1_82_0.tar.bz2
+          cd boost_1_82_0
+          ./bootstrap.sh --prefix=${BUILD_PREFIX}/libs/boost
+          ./b2 -j16 --with-system --with-filesystem --with-thread --with-date_time --with-regex --with-chrono toolset=clang cxxflags="-fPIC -stdlib=libc++" link=shared
+          ./b2 install
 
       - name: Build OpenImageIO
         run: |
           export PATH=${BUILD_PREFIX}/target/bin:$PATH
           cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 --branch v2.4.17.0 https://github.com/OpenImageIO/oiio.git 2>/dev/null || true
-          cd oiio && mkdir -p build && cd build
-          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin${OSXCROSS_SDK_VERSION}-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/oiio -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF .. 2>&1 | tail -20
-          make -j${JOBS} 2>&1 | tail -20 && make install
+          git clone --depth=1 --branch v2.4.17.0 https://github.com/OpenImageIO/oiio.git
+          cd oiio
+          mkdir -p build && cd build
+          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin13-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin13-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/oiio -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF ..
+          make -j16
+          make install
 
       - name: Create release archive
         run: |
