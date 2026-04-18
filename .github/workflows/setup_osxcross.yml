@@ -171,24 +171,12 @@ jobs:
           ./b2 -j16 --with-system --with-filesystem --with-thread --with-date_time --with-regex --with-chrono toolset=clang cxxflags="-fPIC -stdlib=libc++" link=shared
           ./b2 install
 
-      - name: Build OpenImageIO
-        continue-on-error: true
-        run: |
-          export PATH=${BUILD_PREFIX}/target/bin:$PATH
-          cd ${BUILD_PREFIX}/sources
-          git clone --depth=1 --branch v2.4.17.0 https://github.com/OpenImageIO/oiio.git 2>/dev/null || true
-          cd oiio
-          mkdir -p build && cd build
-          cmake -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_C_COMPILER=x86_64-apple-darwin17-clang -DCMAKE_CXX_COMPILER=x86_64-apple-darwin17-clang++ -DCMAKE_INSTALL_PREFIX=${BUILD_PREFIX}/libs/oiio -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF ..
-          make -j16
-          make install
-
       - name: Create release archive
         run: |
           cd ${BUILD_PREFIX}
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           RELEASE_NAME="osxcross-complete-highsierra-${TIMESTAMP}"
-          tar --exclude='tarballs' --exclude='sources' --exclude='src/.git' -czf "${RELEASE_NAME}.tar.gz" target/ SDK/ libs/ src/tools src/wrapper src/docs src/*.sh src/LICENSE
+          tar --exclude='tarballs' --exclude='sources' --exclude='src/.git' -czf "${RELEASE_NAME}.tar.gz" target/ SDK/ libs/ src/tools src/wrapper 2>/dev/null || tar --exclude='tarballs' --exclude='sources' --exclude='src/.git' -czf "${RELEASE_NAME}.tar.gz" target/ SDK/ libs/ src/tools
           sha256sum "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.sha256"
           ls -lh osxcross-complete-highsierra-*
 
