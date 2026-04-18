@@ -378,7 +378,15 @@ jobs:
           
           sha256sum "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.sha256"
           
-          cat > "${RELEASE_NAME}-MANIFEST.txt" << 'EOF'
+          ls -lh "${RELEASE_NAME}"*
+
+      - name: Create manifest file
+        run: |
+          cd ${BUILD_PREFIX}
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          RELEASE_NAME="osxcross-complete-highsierra-${TIMESTAMP}"
+          
+          cat > "${RELEASE_NAME}-MANIFEST.txt" << 'MANIFEST'
 OSXCross Complete Release - macOS High Sierra (10.13)
 ======================================================
 
@@ -446,11 +454,7 @@ CMake configuration:
 PKG_CONFIG:
   pkg-config --cflags --libs libxml-2.0
   pkg-config --cflags --libs OpenImageIO
-
-SIZE: $(du -sh /opt/osxcross 2>/dev/null | cut -f1)
-EOF
-          
-          ls -lh "${RELEASE_NAME}"*
+MANIFEST
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -459,7 +463,7 @@ EOF
           path: |
             ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*.tar.gz
             ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*.sha256
-            ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*.txt
+            ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*-MANIFEST.txt
           retention-days: 90
 
       - name: Create build summary
