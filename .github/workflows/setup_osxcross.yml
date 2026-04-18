@@ -1,5 +1,5 @@
 # 🍎 OSXCross Builder - High Sierra (10.13) - COMPLETE & WORKING
-name: 🍎 Build OSXCross - High Sierra 10.13 - NO COMPROMISES
+name: 🍎 Build OSXCross - High Sierra 10.13 - FINAL
 
 on:
   push:
@@ -101,12 +101,22 @@ jobs:
           
           cd ${BUILD_PREFIX}/sources
           
-          wget -q https://github.com/glennrp/libpng/archive/refs/tags/v1.6.21.tar.gz
-          tar xzf v1.6.21.tar.gz
-          cd libpng-1.6.21
+          # Скачиваем УЖЕ готовый tarball с configure (не .tar.gz с исходниками)
+          wget -q https://sourceforge.net/projects/libpng/files/libpng16/1.6.21/libpng-1.6.21.tar.xz/download -O libpng-1.6.21.tar.xz
           
-          # ✅ FIX: просто удаляем строку с fp.h
-          sed -i '/#.*include.*<fp.h>/d' pngpriv.h
+          if [ ! -f "libpng-1.6.21.tar.xz" ]; then
+            # Fallback на github
+            wget -q https://github.com/glennrp/libpng/archive/refs/tags/v1.6.21.tar.gz
+            tar xzf v1.6.21.tar.gz
+            cd libpng-1.6.21
+            autoreconf -fiv
+          else
+            tar xf libpng-1.6.21.tar.xz
+            cd libpng-1.6.21
+          fi
+          
+          # Удаляем fp.h
+          sed -i '/#.*include.*<fp.h>/d' pngpriv.h 2>/dev/null || true
           
           ./configure --host=x86_64-apple-darwin17 --prefix=${BUILD_PREFIX}/libs/libpng --disable-shared
           make
