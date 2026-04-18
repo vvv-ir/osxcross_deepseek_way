@@ -63,7 +63,9 @@ jobs:
       - name: Copy osxcross to final location
         run: |
           cp -r ${BUILD_PREFIX}/src/target/* ${BUILD_PREFIX}/target/
-          cp -r ${BUILD_PREFIX}/src/SDK/* ${BUILD_PREFIX}/SDK/
+          if [ -d "${BUILD_PREFIX}/src/SDK" ]; then
+            cp -r ${BUILD_PREFIX}/src/SDK/* ${BUILD_PREFIX}/SDK/
+          fi
 
       - name: Verify toolchain
         run: |
