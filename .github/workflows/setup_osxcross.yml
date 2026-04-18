@@ -176,11 +176,12 @@ jobs:
           cd ${BUILD_PREFIX}
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           RELEASE_NAME="osxcross-complete-highsierra-${TIMESTAMP}"
-          tar --exclude='tarballs' --exclude='sources' --exclude='src/.git' -czf "${RELEASE_NAME}.tar.gz" target/ SDK/ libs/ src/tools src/wrapper 2>/dev/null || tar --exclude='tarballs' --exclude='sources' --exclude='src/.git' -czf "${RELEASE_NAME}.tar.gz" target/ SDK/ libs/ src/tools
+          tar --exclude='tarballs' --exclude='sources' --exclude='src/.git' -czf "${RELEASE_NAME}.tar.gz" target/ SDK/ libs/ src/tools 2>/dev/null || tar --exclude='tarballs' --exclude='sources' --exclude='src/.git' -czf "${RELEASE_NAME}.tar.gz" target/ SDK/ libs/
           sha256sum "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.sha256"
+          echo "RELEASE_NAME=${RELEASE_NAME}" >> $GITHUB_ENV
           ls -lh osxcross-complete-highsierra-*
 
-      - name: Upload artifacts
+      - name: Upload to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: osxcross-highsierra-complete
@@ -188,3 +189,47 @@ jobs:
             ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*.tar.gz
             ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*.sha256
           retention-days: 90
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*.tar.gz
+            ${{ env.BUILD_PREFIX }}/osxcross-complete-highsierra-*.sha256
+          tag_name: osxcross-highsierra-${{ github.run_number }}
+          body: |
+            # OSXCross Complete Release - macOS High Sierra (10.13)
+            
+            **Build Date:** ${{ github.event.head_commit.timestamp || 'Now' }}
+            **SDK Version:** 10.13 (High Sierra)
+            **Toolchain Target:** x86_64-apple-darwin17
+            
+            ## Included Components
+            - osxcross toolchain (clang, clang++, ar, ranlib, strip, etc.)
+            - macOS 10.13 SDK (High Sierra)
+            - OpenSSL 1.1
+            - zlib 1.3.1
+            - libpng
+            - libjpeg-turbo
+            - libtiff
+            - libxml2
+            - Boost 1.82
+            
+            ## Quick Start
+            ```bash
+            tar xzf osxcross-complete-highsierra-*.tar.gz -C /opt/
+            export OSXCROSS_ROOT=/opt/osxcross
+            export PATH=$OSXCROSS_ROOT/target/bin:$PATH
+            x86_64-apple-darwin17-clang --version
+            ```
+            
+            ## Usage Example
+            ```bash
+            x86_64-apple-darwin17-clang -mmacosx-version-min=10.13 \
+              -isysroot $OSXCROSS_ROOT/SDK/MacOSX10.13.sdk \
+              -o program program.c
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
