@@ -41,15 +41,14 @@ jobs:
 
       - name: Download macOS High Sierra SDK
         run: |
-          cd ${BUILD_PREFIX}
-          echo "Downloading SDK..."
+          cd ${BUILD_PREFIX}/src/tarballs
+          echo "Downloading SDK to osxcross tarballs directory..."
           wget -q -T 60 --tries=5 -O MacOSX10.13.sdk.tar.xz https://github.com/joseluisq/macosx-sdks/releases/download/10.13/MacOSX10.13.sdk.tar.xz
           if [ ! -f MacOSX10.13.sdk.tar.xz ]; then
             echo "First mirror failed, trying alternative..."
             wget -q -T 60 --tries=5 -O MacOSX10.13.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.13.sdk.tar.xz
           fi
-          tar -xf MacOSX10.13.sdk.tar.xz -C SDK/
-          ls -la SDK/
+          ls -lh
 
       - name: Build osxcross toolchain
         run: |
