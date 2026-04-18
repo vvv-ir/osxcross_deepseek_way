@@ -55,10 +55,15 @@ jobs:
           cd ${BUILD_PREFIX}/src
           export UNATTENDED=1
           export FORCE_PACK_EDH=1
-          export OSXCROSS_ROOT=${BUILD_PREFIX}
+          export OSXCROSS_ROOT=${BUILD_PREFIX}/src
           export SDK_VERSION=10.13
           export JOBS=16
           ./build.sh
+
+      - name: Copy osxcross to final location
+        run: |
+          cp -r ${BUILD_PREFIX}/src/target/* ${BUILD_PREFIX}/target/
+          cp -r ${BUILD_PREFIX}/src/SDK/* ${BUILD_PREFIX}/SDK/
 
       - name: Verify toolchain
         run: |
