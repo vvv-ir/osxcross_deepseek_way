@@ -1,7 +1,7 @@
 name: Build OSXCross (fully static, no libxar dependency)
 on:
-  push:
-    branches: [ main ]
+ # push:
+  #  branches: [ main ]
   workflow_dispatch:
 jobs:
   build:
